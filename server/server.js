@@ -8,6 +8,7 @@ const os = require("os");
 const { execFile } = require("child_process");
 const { WebSocketServer } = require("ws");
 const { SessionManager, resolveCwd, TMUX_AVAILABLE, TMUX_SOCKET,
+        normalizeProvider,
         notifications, recentNotifications,
         pushNotification } = require("./session-manager");
 const { ensureClaudeHooksInstalled } = require("./claude-hooks-installer");
@@ -120,6 +121,19 @@ function runCmd(cmd, args, timeoutMs = 2500) {
   });
 }
 
+function resolveAgentBinary(name) {
+  const candidates = [
+    path.join(os.homedir(), ".local", "bin", name),
+    `/opt/homebrew/bin/${name}`,
+    `/usr/local/bin/${name}`,
+    `/usr/bin/${name}`,
+  ];
+  for (const p of candidates) {
+    try { fs.accessSync(p, fs.constants.X_OK); return p; } catch {}
+  }
+  return null;
+}
+
 async function tailscaleInfo() {
   const candidates = [
     "/usr/local/bin/tailscale",
@@ -186,7 +200,11 @@ async function handleSessionsApi(req, res, url) {
 
   try {
     if (req.method === "GET" && !id) {
-      sendJSON(res, 200, { sessions: manager.list() });
+      const requestedProvider = (url.searchParams.get("provider") || "").trim().toLowerCase();
+      const provider = ["claude", "codex"].includes(requestedProvider) ? requestedProvider : "";
+      let sessions = manager.list();
+      if (provider) sessions = sessions.filter((s) => normalizeProvider(s.provider) === provider);
+      sendJSON(res, 200, { sessions });
       return;
     }
     if (req.method === "GET" && id) {
@@ -199,11 +217,12 @@ async function handleSessionsApi(req, res, url) {
       const body = await readJSONBody(req);
       const s = manager.create({
         name: body.name,
+        provider: body.provider,
         cwd: body.cwd,
         autorun: body.autorun,
         cols: body.cols, rows: body.rows,
       });
-      console.log(`[session] created ${s.id} (${s.name}) cwd=${s.cwd} autorun=${JSON.stringify(s.autorun)}`);
+      console.log(`[session] created ${s.id} (${s.name}) provider=${s.provider} cwd=${s.cwd} autorun=${JSON.stringify(s.autorun)}`);
       sendJSON(res, 201, s.describe());
       return;
     }
@@ -469,6 +488,11 @@ async function handleFsApi(req, res, url) {
 const CLAUDE_HOME = path.join(os.homedir(), ".claude", "projects");
 const CLAUDE_MAX_SCAN_LINES = 40;    // first user prompt usually within first few lines
 const CLAUDE_MAX_FILE_SIZE  = 50 * 1024 * 1024; // skip pathological files
+const CODEX_HOME = path.join(os.homedir(), ".codex");
+const CODEX_SESSIONS_HOME = path.join(CODEX_HOME, "sessions");
+const CODEX_INDEX_FILE = path.join(CODEX_HOME, "session_index.jsonl");
+const CODEX_MAX_SCAN_LINES = 120;
+const CODEX_MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 function extractTextContent(content) {
   if (content == null) return "";
@@ -483,6 +507,23 @@ function extractTextContent(content) {
     }).filter(Boolean).join(" ");
   }
   return "";
+}
+
+function compactPrompt(text) {
+  return String(text || "").replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
+function cleanCodexPrompt(text) {
+  let t = String(text || "");
+  const marker = "## My request for Codex:";
+  const idx = t.indexOf(marker);
+  if (idx >= 0) t = t.slice(idx + marker.length);
+  t = t.replace(/<environment_context>[\s\S]*?<\/environment_context>/g, " ");
+  return compactPrompt(t);
+}
+
+function isInternalCodexPrompt(text) {
+  return text.startsWith("The following is the Codex agent history");
 }
 
 function scanClaudeSessionFile(filePath) {
@@ -504,7 +545,7 @@ function scanClaudeSessionFile(filePath) {
           if (!gitBranch && typeof o.gitBranch === "string") gitBranch = o.gitBranch;
           if (!firstPrompt && o.type === "user" && o.message) {
             const t = extractTextContent(o.message.content);
-            if (t) firstPrompt = t.replace(/\s+/g, " ").slice(0, 160);
+            if (t) firstPrompt = compactPrompt(t);
           }
         } catch {}
       }
@@ -514,10 +555,111 @@ function scanClaudeSessionFile(filePath) {
   } catch {}
   return {
     id,
+    provider: "claude",
     cwd, gitBranch,
     firstPrompt,
     messageCount,
     lastModified: Math.floor(st.mtimeMs),
+    size: st.size,
+  };
+}
+
+function readCodexIndex() {
+  const out = new Map();
+  try {
+    const raw = fs.readFileSync(CODEX_INDEX_FILE, "utf8");
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const o = JSON.parse(line);
+        if (o && o.id) out.set(String(o.id), {
+          threadName: String(o.thread_name || ""),
+          updatedAt: String(o.updated_at || ""),
+        });
+      } catch {}
+    }
+  } catch {}
+  return out;
+}
+
+function walkJsonlFiles(root, limit = 5000) {
+  const files = [];
+  const walk = (dir) => {
+    if (files.length >= limit) return;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      if (files.length >= limit) return;
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) {
+        walk(full);
+      } else if (ent.isFile() && ent.name.endsWith(".jsonl")) {
+        files.push(full);
+      }
+    }
+  };
+  walk(root);
+  return files;
+}
+
+function codexIdFromPath(filePath) {
+  const base = path.basename(filePath, ".jsonl");
+  const m = base.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+  return m ? m[1] : base;
+}
+
+function extractCodexUserText(payload) {
+  if (!payload) return "";
+  if (payload.type === "user_message" && typeof payload.message === "string") return payload.message;
+  if (payload.type === "message" && payload.role === "user") return extractTextContent(payload.content);
+  if (payload.role === "user") return extractTextContent(payload.content);
+  return "";
+}
+
+function scanCodexSessionFile(filePath, index) {
+  let st; try { st = fs.statSync(filePath); } catch { return null; }
+  if (st.size > CODEX_MAX_FILE_SIZE) return null;
+  let id = codexIdFromPath(filePath);
+  let cwd = "", firstPrompt = "", messageCount = 0;
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    const lines = raw.split("\n");
+    let scanned = 0;
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      messageCount++;
+      if (scanned >= CODEX_MAX_SCAN_LINES && firstPrompt && cwd) continue;
+      scanned++;
+      try {
+        const o = JSON.parse(line);
+        if (o.type === "session_meta" && o.payload) {
+          if (o.payload.id) id = String(o.payload.id);
+          if (!cwd && typeof o.payload.cwd === "string") cwd = o.payload.cwd;
+          continue;
+        }
+        const payload = o.payload || {};
+        if (!firstPrompt && (o.type === "event_msg" || o.type === "response_item")) {
+          const t = cleanCodexPrompt(extractCodexUserText(payload));
+          if (t && !isInternalCodexPrompt(t)) firstPrompt = t;
+        }
+      } catch {}
+    }
+  } catch {}
+
+  const indexed = index.get(id) || {};
+  const updatedAtMs = Date.parse(indexed.updatedAt || "");
+  const threadName = indexed.threadName || "";
+  if (!firstPrompt && !threadName) return null;
+  const lastModified = Math.floor(Math.max(st.mtimeMs, Number.isFinite(updatedAtMs) ? updatedAtMs : 0));
+  return {
+    id,
+    provider: "codex",
+    cwd,
+    gitBranch: "",
+    firstPrompt: firstPrompt || compactPrompt(threadName),
+    threadName,
+    messageCount,
+    lastModified,
     size: st.size,
   };
 }
@@ -555,6 +697,7 @@ async function handleEventApi(req, res, url) {
     id: crypto.randomBytes(6).toString("base64url"),
     sessionId,
     sessionName,
+    provider: normalizeProvider(body.provider || "claude"),
     kind,
     at: Date.now(),
     snippet,
@@ -578,6 +721,7 @@ async function handleNotifyTestApi(req, res, url) {
     id: crypto.randomBytes(6).toString("base64url"),
     sessionId: "test",
     sessionName: "测试会话",
+    provider: "claude",
     kind: kind === "done" ? "done" : "confirm",
     at: Date.now(),
     snippet: kind === "done" ? "测试:任务完成事件" : "测试:需要你确认 y/n",
@@ -641,6 +785,60 @@ async function handleClaudeSessionsApi(req, res, url) {
   });
 }
 
+async function handleCodexSessionsApi(req, res, url) {
+  if (!isAuthorized(req, url)) { sendJSON(res, 401, { error: "unauthorized" }); return; }
+  if (req.method !== "GET") { sendJSON(res, 405, { error: "method not allowed" }); return; }
+  const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "200", 10) || 200, 500);
+
+  if (!fs.existsSync(CODEX_SESSIONS_HOME)) {
+    sendJSON(res, 200, {
+      sessions: [],
+      codexHome: CODEX_HOME,
+      warning: "no ~/.codex/sessions",
+    });
+    return;
+  }
+
+  const sessions = [];
+  try {
+    const index = readCodexIndex();
+    for (const file of walkJsonlFiles(CODEX_SESSIONS_HOME)) {
+      const info = scanCodexSessionFile(file, index);
+      if (info) {
+        info.projectDir = path.relative(CODEX_SESSIONS_HOME, path.dirname(file));
+        sessions.push(info);
+      }
+    }
+  } catch (e) {
+    sendJSON(res, 500, { error: e.message }); return;
+  }
+
+  sessions.sort((a, b) => b.lastModified - a.lastModified);
+
+  let filtered = sessions;
+  if (q) {
+    filtered = sessions.filter((s) =>
+      s.firstPrompt.toLowerCase().includes(q) ||
+      (s.threadName || "").toLowerCase().includes(q) ||
+      s.cwd.toLowerCase().includes(q) ||
+      s.id.toLowerCase().includes(q) ||
+      (s.projectDir || "").toLowerCase().includes(q)
+    );
+  }
+  const truncated = filtered.length > limit;
+  if (truncated) filtered = filtered.slice(0, limit);
+
+  sendJSON(res, 200, {
+    sessions: filtered,
+    totalCount: sessions.length,
+    filteredCount: filtered.length,
+    truncated,
+    codexHome: CODEX_HOME,
+    query: q,
+  });
+}
+
 const httpServer = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
@@ -655,6 +853,10 @@ const httpServer = http.createServer(async (req, res) => {
       port: PORT, host: HOST, token: TOKEN,
       lan: getLanIp(), tailscale: ts,
       shell: SHELL,
+      agents: {
+        claude: { available: !!resolveAgentBinary("claude"), path: resolveAgentBinary("claude") },
+        codex: { available: !!resolveAgentBinary("codex"), path: resolveAgentBinary("codex") },
+      },
       tmuxAvailable: TMUX_AVAILABLE, tmuxSocket: TMUX_AVAILABLE ? TMUX_SOCKET : null,
       hostname: os.hostname(), platform: `${os.platform()} ${os.arch()}`,
     });
@@ -674,6 +876,10 @@ const httpServer = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/api/claude/sessions") {
     await handleClaudeSessionsApi(req, res, url);
+    return;
+  }
+  if (url.pathname === "/api/codex/sessions") {
+    await handleCodexSessionsApi(req, res, url);
     return;
   }
   if (url.pathname === "/api/notifications") {

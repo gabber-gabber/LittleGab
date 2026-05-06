@@ -44,8 +44,10 @@ class ApiClient(private val baseUrlWithToken: String) {
 
     // ------- sessions -------
 
-    suspend fun listSessions(): List<SessionInfo> = withContext(Dispatchers.IO) {
-        val resp = textRequest("GET", "/api/sessions", null)
+    suspend fun listSessions(provider: String? = null): List<SessionInfo> = withContext(Dispatchers.IO) {
+        val p = normalizeProvider(provider)
+        val path = if (p.isEmpty()) "/api/sessions" else "/api/sessions?provider=${URLEncoder.encode(p, "UTF-8")}"
+        val resp = textRequest("GET", path, null)
         val arr = JSONObject(resp).optJSONArray("sessions") ?: JSONArray()
         (0 until arr.length()).map { parseSession(arr.getJSONObject(it)) }
     }
@@ -54,8 +56,10 @@ class ApiClient(private val baseUrlWithToken: String) {
         name: String?,
         cwd: String?,
         autorun: String?,
+        provider: String = "claude",
     ): SessionInfo = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
+            put("provider", normalizeProvider(provider).ifEmpty { "claude" })
             if (!name.isNullOrBlank()) put("name", name)
             if (!cwd.isNullOrBlank()) put("cwd", cwd)
             if (!autorun.isNullOrBlank()) put("autorun", autorun)
@@ -184,20 +188,23 @@ class ApiClient(private val baseUrlWithToken: String) {
         } finally { conn.disconnect() }
     }
 
-    // ------- Claude history -------
+    // ------- agent history -------
 
-    suspend fun listClaudeSessions(query: String?): List<ClaudeSession> = withContext(Dispatchers.IO) {
+    suspend fun listAgentSessions(provider: String, query: String?): List<AgentHistorySession> = withContext(Dispatchers.IO) {
+        val agent = normalizeProvider(provider).ifEmpty { "claude" }
         val q = query?.trim().orEmpty()
-        val p = if (q.isEmpty()) "/api/claude/sessions" else "/api/claude/sessions?q=${URLEncoder.encode(q, "UTF-8")}"
+        val p = if (q.isEmpty()) "/api/$agent/sessions" else "/api/$agent/sessions?q=${URLEncoder.encode(q, "UTF-8")}"
         val resp = textRequest("GET", p, null)
         val o = JSONObject(resp)
         val arr = o.optJSONArray("sessions") ?: JSONArray()
         (0 until arr.length()).map { i ->
             val e = arr.getJSONObject(i)
-            ClaudeSession(
+            AgentHistorySession(
                 id = e.getString("id"),
+                provider = e.optString("provider", agent).ifEmpty { agent },
                 cwd = e.optString("cwd", ""),
                 firstPrompt = e.optString("firstPrompt", ""),
+                threadName = e.optString("threadName", ""),
                 messageCount = e.optInt("messageCount", 0),
                 lastModified = e.optLong("lastModified", 0L),
                 size = e.optLong("size", 0L),
@@ -240,6 +247,7 @@ class ApiClient(private val baseUrlWithToken: String) {
     private fun parseSession(o: JSONObject): SessionInfo = SessionInfo(
         id = o.getString("id"),
         name = o.optString("name", ""),
+        provider = o.optString("provider", "claude").ifEmpty { "claude" },
         cwd = o.optString("cwd", ""),
         autorun = o.optString("autorun", ""),
         createdAt = o.optLong("createdAt", 0L),
@@ -279,5 +287,10 @@ class ApiClient(private val baseUrlWithToken: String) {
             if (pair.substring(0, idx) == key) return pair.substring(idx + 1)
         }
         return null
+    }
+
+    private fun normalizeProvider(provider: String?): String {
+        val p = provider?.trim()?.lowercase().orEmpty()
+        return if (p == "claude" || p == "codex") p else ""
     }
 }

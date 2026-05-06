@@ -115,12 +115,60 @@ function now() { return Date.now(); }
 
 function shortId() { return crypto.randomBytes(6).toString("base64url"); }
 
-// Pull the jsonl id out of an autorun string like "claude --resume abc-123".
-// Returns null if autorun doesn't start a fresh-named session.
-function extractResumeId(autorun) {
+const AGENT_PROVIDERS = new Set(["claude", "codex"]);
+
+function normalizeProvider(provider) {
+  const p = String(provider || "").trim().toLowerCase();
+  return AGENT_PROVIDERS.has(p) ? p : "claude";
+}
+
+function tokenizeAutorun(autorun) {
+  return String(autorun || "").match(/"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|\S+/g) || [];
+}
+
+function commandName(word) {
+  const unquoted = String(word || "").replace(/^["']|["']$/g, "");
+  return path.basename(unquoted);
+}
+
+function inferProviderFromAutorun(autorun) {
+  const cmd = commandName(tokenizeAutorun(autorun)[0] || "");
+  return cmd === "codex" ? "codex" : "claude";
+}
+
+function agentLabel(provider) {
+  return normalizeProvider(provider) === "codex" ? "Codex" : "Claude";
+}
+
+// Pull the session id out of resume autorun commands:
+//   claude --resume abc-123
+//   codex --no-alt-screen resume abc-123
+function extractResumeId(autorun, provider = "claude") {
   if (!autorun) return null;
-  const m = autorun.match(/--resume(?:=|\s+)([A-Za-z0-9_-]+)/);
-  return m ? m[1] : null;
+  provider = normalizeProvider(provider);
+  if (provider === "claude") {
+    const m = autorun.match(/--resume(?:=|\s+)([A-Za-z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+  const words = tokenizeAutorun(autorun);
+  if (commandName(words[0] || "") !== "codex") return null;
+  const idx = words.findIndex((w) => w === "resume");
+  if (idx < 0) return null;
+  const optsWithValue = new Set([
+    "-c", "--config", "-m", "--model", "-s", "--sandbox", "-a", "--ask-for-approval",
+    "-C", "--cd", "-p", "--profile", "--remote", "--remote-auth-token-env",
+    "-i", "--image", "--add-dir",
+  ]);
+  for (let i = idx + 1; i < words.length; i++) {
+    const w = words[i];
+    if (!w) continue;
+    if (w.startsWith("-")) {
+      if (optsWithValue.has(w)) i++;
+      continue;
+    }
+    return w.replace(/^["']|["']$/g, "");
+  }
+  return null;
 }
 
 // Poll ~/.claude/projects/*/*.jsonl for 30s after session start, picking up
@@ -211,6 +259,15 @@ function resolveCwd(raw) {
   return p;
 }
 
+function buildCliPath() {
+  const extras = [
+    path.join(os.homedir(), ".local", "bin"),
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+  ];
+  return [...extras, process.env.PATH || "/usr/bin:/bin:/usr/sbin:/sbin"].join(":");
+}
+
 class Session {
   constructor(opts = {}) {
     this.id = opts.id || shortId();
@@ -221,6 +278,7 @@ class Session {
     this.rows = opts.rows || 24;
     this.cwd = resolveCwd(opts.cwd);
     this.autorun = (typeof opts.autorun === "string" && opts.autorun.trim()) ? opts.autorun.trim() : "";
+    this.provider = normalizeProvider(opts.provider || inferProviderFromAutorun(this.autorun));
     this.shell = opts.shell || process.env.SHELL || "/bin/zsh";
     this.bufferChunks = [];     // Array<Buffer> of recent output
     this.bufferSize = 0;
@@ -230,7 +288,12 @@ class Session {
     // plain `claude`, the jsonl id is unknown until claude creates a file —
     // we'll set it lazily by watching `~/.claude/projects/*/<file>.jsonl`
     // that first appears with a recent mtime after this session starts.
-    this.claudeJsonlId = opts.claudeJsonlId || extractResumeId(this.autorun) || null;
+    this.claudeJsonlId = this.provider === "claude"
+      ? (opts.claudeJsonlId || extractResumeId(this.autorun, "claude") || null)
+      : (opts.claudeJsonlId || null);
+    this.codexSessionId = this.provider === "codex"
+      ? (opts.codexSessionId || extractResumeId(this.autorun, "codex") || null)
+      : (opts.codexSessionId || null);
 
     this.tmuxName = TMUX_AVAILABLE ? `${TMUX_SESSION_PREFIX}${this.id}` : null;
     const existedBefore = this.tmuxName && tmuxSafe(["has-session", "-t", this.tmuxName]);
@@ -249,6 +312,7 @@ class Session {
       TERM: TMUX_AVAILABLE ? "tmux-256color" : "xterm-256color",
       COLORTERM: "truecolor",
       LANG: process.env.LANG || "en_US.UTF-8",
+      PATH: buildCliPath(),
     };
 
     if (TMUX_AVAILABLE) {
@@ -280,7 +344,7 @@ class Session {
     // If autorun doesn't declare a resume id, watch ~/.claude/projects for a
     // newly-written jsonl and learn the id lazily. This lets takeover
     // detection work for sessions started with plain `claude`.
-    if (!this.claudeJsonlId && this.autorun && /\bclaude\b/.test(this.autorun) && !this.reattached) {
+    if (this.provider === "claude" && !this.claudeJsonlId && this.autorun && /\bclaude\b/.test(this.autorun) && !this.reattached) {
       discoverJsonlIdLater(this);
     }
 
@@ -359,7 +423,7 @@ class Session {
         // After surfacing a confirm we drop the matched text from the buffer
         // so the same banner re-appearing on a redraw doesn't re-match.
         this._recentTextBuf = "";
-        this._emitNotify("confirm", "Claude 在等你点 Yes / No");
+        this._emitNotify("confirm", `${agentLabel(this.provider)} 在等你点 Yes / No`);
       }
     }
 
@@ -412,6 +476,7 @@ class Session {
       id: crypto.randomBytes(6).toString("base64url"),
       sessionId: this.id,
       sessionName: this.name,
+      provider: this.provider,
       kind,
       at: Date.now(),
       snippet,
@@ -530,6 +595,7 @@ class Session {
     return {
       id: this.id,
       name: this.name,
+      provider: this.provider,
       cwd: this.cwd,
       autorun: this.autorun,
       createdAt: this.createdAt,
@@ -540,6 +606,7 @@ class Session {
       preview: this.preview(),
       tmuxName: this.tmuxName,
       claudeJsonlId: this.claudeJsonlId,
+      codexSessionId: this.codexSessionId,
       // One-liner for the user to type in Mac Terminal to mirror this session.
       macAttachCommand: this.tmuxName ? `tmux -L ${TMUX_SOCKET} attach -t ${this.tmuxName}` : null,
     };
@@ -595,11 +662,13 @@ class SessionManager {
         const s = new Session({
           id,
           name: meta.name,
+          provider: meta.provider,
           cwd: meta.cwd,
           autorun: "", // never re-run on reattach
           createdAt: meta.createdAt || info.createdAt,
           lastActivityAt: info.lastActivityAt,
           claudeJsonlId: meta.claudeJsonlId,
+          codexSessionId: meta.codexSessionId,
           reattach: true,
         });
         this.sessions.set(id, s);
@@ -624,10 +693,13 @@ class SessionManager {
     for (const s of this.sessions.values()) {
       obj[s.id] = {
         name: s.name,
+        provider: s.provider,
         cwd: s.cwd,
         autorun: s.autorun,
         createdAt: s.createdAt,
+        lastActivityAt: s.lastActivityAt,
         claudeJsonlId: s.claudeJsonlId,
+        codexSessionId: s.codexSessionId,
       };
     }
     savePersisted(obj);
@@ -658,9 +730,13 @@ class SessionManager {
       const s = new Session({
         id,
         name: meta.name,
+        provider: meta.provider,
         cwd: meta.cwd,
         autorun: "",
         createdAt: meta.createdAt,
+        lastActivityAt: meta.lastActivityAt,
+        claudeJsonlId: meta.claudeJsonlId,
+        codexSessionId: meta.codexSessionId,
         reattach: true,
       });
       this.sessions.set(id, s);
@@ -704,7 +780,7 @@ class SessionManager {
   // Returns { killed: [{pid,cmd}], waited: true|false } for logging.
   claimSessionForPhone(id) {
     const s = this.get(id);
-    if (!s || !s.claudeJsonlId) return { killed: [], waited: false };
+    if (!s || s.provider !== "claude" || !s.claudeJsonlId) return { killed: [], waited: false };
     const owners = claudeScan.findExternalClaudeHolders(ourAncestorPids());
     const matches = owners.get(s.claudeJsonlId) || [];
     const killed = [];
@@ -721,7 +797,7 @@ class SessionManager {
 }
 
 module.exports = {
-  SessionManager, Session, resolveCwd,
+  SessionManager, Session, resolveCwd, normalizeProvider,
   TMUX_AVAILABLE, TMUX_SOCKET,
   notifications, recentNotifications,
   pushNotification,

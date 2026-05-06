@@ -3,6 +3,7 @@ package com.local.phonemacbridge
 data class SessionInfo(
     val id: String,
     val name: String,
+    val provider: String = "claude",
     val cwd: String = "",
     val autorun: String = "",
     val createdAt: Long,
@@ -53,10 +54,12 @@ data class FileReadResult(
     fun asText(): String = String(bytes, Charsets.UTF_8)
 }
 
-data class ClaudeSession(
+data class AgentHistorySession(
     val id: String,
+    val provider: String = "claude",
     val cwd: String,
     val firstPrompt: String,
+    val threadName: String = "",
     val messageCount: Int,
     val lastModified: Long,
     val size: Long,

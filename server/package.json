@@ -2,7 +2,7 @@
   "name": "phone-mac-bridge",
   "version": "0.1.0",
   "private": true,
-  "description": "Remote terminal bridge: phone (PWA) <-> Mac (Claude CLI) over Tailscale",
+  "description": "Remote terminal bridge: phone (PWA) <-> Mac (Claude/Codex CLI) over Tailscale",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

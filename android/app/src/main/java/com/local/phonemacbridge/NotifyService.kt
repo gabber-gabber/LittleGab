@@ -178,10 +178,11 @@ class NotifyService : Service() {
         val kind = j.optString("kind", "")
         val sessionId = j.optString("sessionId", "")
         val sessionName = j.optString("sessionName", "")
+        val provider = j.optString("provider", "")
         val at = j.optLong("at", System.currentTimeMillis())
         val snippet = j.optString("snippet", "").trim()
         if (id.isEmpty() || sessionId.isEmpty() || kind.isEmpty()) return
-        postEventNotification(kind, sessionId, sessionName, at, snippet)
+        postEventNotification(kind, sessionId, sessionName, provider, at, snippet)
         if (at > prefs.lastNotifySeenAt) prefs.lastNotifySeenAt = at
     }
 
@@ -213,12 +214,18 @@ class NotifyService : Service() {
         kind: String,
         sessionId: String,
         sessionName: String,
+        provider: String,
         at: Long,
         snippet: String,
     ) {
+        val agent = when (provider.trim().lowercase()) {
+            "codex" -> "Codex "
+            "claude" -> "Claude "
+            else -> ""
+        }
         val title = when (kind) {
-            "confirm" -> "需要确认:${sessionName.ifEmpty { sessionId }}"
-            "done" -> "任务完成:${sessionName.ifEmpty { sessionId }}"
+            "confirm" -> "${agent}需要确认:${sessionName.ifEmpty { sessionId }}"
+            "done" -> "${agent}任务完成:${sessionName.ifEmpty { sessionId }}"
             else -> sessionName.ifEmpty { "LittleGab" }
         }
         val tap = Intent(this, SessionActivity::class.java).apply {

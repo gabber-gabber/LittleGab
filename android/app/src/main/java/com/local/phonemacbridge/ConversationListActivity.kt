@@ -23,6 +23,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.tabs.TabLayout
 import com.local.phonemacbridge.databinding.ActivityListBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,6 +37,7 @@ class ConversationListActivity : AppCompatActivity() {
     private lateinit var adapter: ConversationAdapter
     private var refreshJob: Job? = null
     private var lastError: String? = null
+    private var currentProvider: String = "claude"
 
     private val newSessionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -66,6 +68,7 @@ class ConversationListActivity : AppCompatActivity() {
         supportActionBar?.title = getString(R.string.app_name)
 
         prefs = Prefs(this)
+        currentProvider = prefs.agentProvider
 
         adapter = ConversationAdapter(
             onClick = { s -> openSession(s) },
@@ -77,9 +80,30 @@ class ConversationListActivity : AppCompatActivity() {
         binding.swipe.setOnRefreshListener { refresh(force = true) }
         binding.fab.setOnClickListener { openNewSessionActivity() }
         binding.emptyBtnSettings.setOnClickListener { openSettings() }
+        setupProviderTabs()
 
         requestNotifPermIfNeeded()
     }
+
+    private fun setupProviderTabs() {
+        binding.providerTabs.getTabAt(if (currentProvider == "codex") 1 else 0)?.select()
+        binding.providerTabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) {
+                val next = if (tab.position == 1) "codex" else "claude"
+                if (next == currentProvider) return
+                currentProvider = next
+                prefs.agentProvider = next
+                adapter.submitList(emptyList())
+                binding.empty.visibility = View.GONE
+                refresh(force = true)
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab) {}
+            override fun onTabReselected(tab: TabLayout.Tab) { refresh(force = true) }
+        })
+    }
+
+    private fun providerLabel(provider: String = currentProvider): String =
+        if (provider == "codex") getString(R.string.provider_codex) else getString(R.string.provider_claude)
 
     private fun requestNotifPermIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -172,11 +196,12 @@ class ConversationListActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val list = ApiClient(base).listSessions()
-                adapter.submitList(list)
+                val visible = list.filter { it.provider == currentProvider }
+                adapter.submitList(visible)
                 // Reclaim phone-side cache for any session the server has dropped.
                 SessionCache.reconcile(this@ConversationListActivity, list.map { it.id }.toSet())
-                binding.empty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-                binding.emptyText.text = getString(R.string.empty_hint)
+                binding.empty.visibility = if (visible.isEmpty()) View.VISIBLE else View.GONE
+                binding.emptyText.text = getString(R.string.empty_hint_agent, providerLabel())
                 binding.emptyBtnSettings.visibility = View.GONE
                 lastError = null
                 binding.swipe.isRefreshing = false
@@ -197,7 +222,9 @@ class ConversationListActivity : AppCompatActivity() {
     private fun openNewSessionActivity() {
         val base = prefs.url.trim()
         if (base.isEmpty()) { openSettings(); return }
-        newSessionLauncher.launch(Intent(this, NewSessionActivity::class.java))
+        newSessionLauncher.launch(Intent(this, NewSessionActivity::class.java).apply {
+            putExtra(NewSessionActivity.EXTRA_PROVIDER, currentProvider)
+        })
     }
 
     private fun showItemMenu(s: SessionInfo, anchor: View) {

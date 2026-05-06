@@ -58,8 +58,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundleName</key>             <string>LittleGab</string>
   <key>CFBundleDisplayName</key>      <string>LittleGab</string>
   <key>CFBundleIdentifier</key>       <string>com.local.phone-mac-bridge</string>
-  <key>CFBundleVersion</key>          <string>0.5.1</string>
-  <key>CFBundleShortVersionString</key><string>0.5.1</string>
+  <key>CFBundleVersion</key>          <string>0.6.0</string>
+  <key>CFBundleShortVersionString</key><string>0.6.0</string>
   <key>CFBundleExecutable</key>       <string>PhoneMacBridge</string>
   <key>CFBundleIconFile</key>         <string>AppIcon</string>
   <key>CFBundlePackageType</key>      <string>APPL</string>

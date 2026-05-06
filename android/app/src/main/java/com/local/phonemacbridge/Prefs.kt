@@ -16,6 +16,16 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean(KEY_NOTIFS, true)
         set(v) { sp.edit().putBoolean(KEY_NOTIFS, v).apply() }
 
+    var agentProvider: String
+        get() {
+            val p = sp.getString(KEY_AGENT_PROVIDER, "claude") ?: "claude"
+            return if (p == "codex") "codex" else "claude"
+        }
+        set(v) {
+            val p = if (v.trim().lowercase() == "codex") "codex" else "claude"
+            sp.edit().putString(KEY_AGENT_PROVIDER, p).apply()
+        }
+
     /**
      * Epoch-ms of the newest notification the NotifyService has successfully
      * shown. Used when reconnecting so the server only replays newer ones.
@@ -28,5 +38,6 @@ class Prefs(ctx: Context) {
         private const val KEY_URL = "server_url"
         private const val KEY_NOTIFS = "notifications_enabled"
         private const val KEY_LAST_NOTIFY = "last_notify_seen_at"
+        private const val KEY_AGENT_PROVIDER = "agent_provider"
     }
 }

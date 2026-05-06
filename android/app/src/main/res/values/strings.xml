@@ -18,9 +18,13 @@
     <string name="test_fail">失败:%1$s</string>
     <string name="url_invalid">URL 格式不对,请包含 http:// 或 https://。</string>
 
+    <string name="provider_claude">Claude</string>
+    <string name="provider_codex">Codex</string>
     <string name="empty_hint">还没有对话。点右下角 + 新建一个,或到 Mac 上复用已有会话。</string>
+    <string name="empty_hint_agent">还没有 %1$s 对话。点右下角 + 新建一个,或到 Mac 上复用已有会话。</string>
     <string name="list_error">无法获取会话列表:\n%1$s</string>
     <string name="new_conv_title">新建对话</string>
+    <string name="new_conv_title_agent">新建 %1$s 对话</string>
     <string name="action_rename">改名</string>
     <string name="action_delete">删除</string>
     <string name="action_open_mac">在 Mac 终端打开(同步)</string>
@@ -39,8 +43,9 @@
     <string name="nc_cwd">工作目录</string>
     <string name="nc_cwd_hint">~/workspace/your-project</string>
     <string name="nc_pick">浏览</string>
-    <string name="nc_autorun">启动即运行 claude</string>
-    <string name="nc_autorun_hint">会话开起来后自动执行一次 claude 命令。</string>
+    <string name="nc_autorun">启动即运行 CLI</string>
+    <string name="nc_autorun_agent">启动即运行 %1$s</string>
+    <string name="nc_autorun_hint">会话开起来后自动执行一次 CLI 命令。</string>
     <string name="nc_create">创建</string>
 
     <!-- folder picker -->
@@ -68,8 +73,10 @@
     <string name="nc_tab_new">新对话</string>
     <string name="nc_tab_history">继续历史</string>
     <string name="nc_mode">模式</string>
-    <string name="nc_mode_hint">对应 Claude 的 Shift+Tab 模式,可在会话里再切换。</string>
+    <string name="nc_mode_hint">选择启动参数,进会话后也可以直接在终端里调整。</string>
+    <string name="nc_mode_hint_agent">%1$s 启动参数。进会话后也可以直接在终端里调整。</string>
     <string name="nc_search_hint">搜索(首轮提问/目录/分支)</string>
+    <string name="nc_search_hint_agent">搜索 %1$s 历史(首轮提问/目录)</string>
     <string name="nc_hist_summary">共 %1$d 条历史会话</string>
     <string name="nc_hist_filtered">匹配 %1$d / 共 %2$d</string>
     <string name="nc_hist_error">加载失败: %1$s</string>
@@ -77,6 +84,6 @@
 
     <!-- notifications -->
     <string name="notif_section">消息推送</string>
-    <string name="notif_desc">打开后,当 Claude 需要你点 y/n 确认或一个回合刚跑完时,APP 会在锁屏/通知栏弹消息,图标上也带红点。后台会有一条常驻"监听中"通知,这是 Android 前台服务的规定,不能隐藏。</string>
+    <string name="notif_desc">打开后,当会话需要你点 y/n 确认或一个回合刚跑完时,APP 会在锁屏/通知栏弹消息,图标上也带红点。后台会有一条常驻"监听中"通知,这是 Android 前台服务的规定,不能隐藏。</string>
     <string name="notif_toggle">开启会话事件推送</string>
 </resources>

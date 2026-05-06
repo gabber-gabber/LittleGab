@@ -32,13 +32,9 @@ class NewSessionActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNewSessionBinding
     private lateinit var prefs: Prefs
+    private var provider: String = "claude"
 
-    private val modes = listOf(
-        ClaudeMode("default",           "默认(正常编辑,逐条确认)"),
-        ClaudeMode("acceptEdits",       "自动接受编辑"),
-        ClaudeMode("plan",              "计划模式(只规划不改)"),
-        ClaudeMode("bypassPermissions", "旁路权限(完全自动,危险)"),
-    )
+    private lateinit var modes: List<AgentMode>
 
     private lateinit var historyAdapter: HistoryAdapter
     private var searchJob: Job? = null
@@ -60,6 +56,13 @@ class NewSessionActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         prefs = Prefs(this)
+        provider = normalizeProvider(intent.getStringExtra(EXTRA_PROVIDER) ?: prefs.agentProvider)
+        prefs.agentProvider = provider
+        modes = modesFor(provider)
+        supportActionBar?.title = getString(R.string.new_conv_title_agent, providerLabel())
+        binding.nsAutorun.text = getString(R.string.nc_autorun_agent, commandName())
+        binding.nsModeHint.text = getString(R.string.nc_mode_hint_agent, providerLabel())
+        binding.nsSearch.hint = getString(R.string.nc_search_hint_agent, providerLabel())
 
         // Mode spinner
         binding.nsMode.adapter = ArrayAdapter(this,
@@ -126,7 +129,7 @@ class NewSessionActivity : AppCompatActivity() {
         val q = binding.nsSearch.text?.toString()?.trim().orEmpty()
         lifecycleScope.launch {
             try {
-                val sessions = ApiClient(base).listClaudeSessions(if (q.isEmpty()) null else q)
+                val sessions = ApiClient(base).listAgentSessions(provider, if (q.isEmpty()) null else q)
                 historyAdapter.submitList(sessions)
                 binding.nsHistProgress.visibility = View.GONE
                 binding.nsHistMeta.text = if (q.isEmpty())
@@ -151,19 +154,18 @@ class NewSessionActivity : AppCompatActivity() {
         val name = binding.nsName.text?.toString()?.trim().orEmpty()
         val cwd  = binding.nsCwd.text?.toString()?.trim().orEmpty().ifEmpty { "~" }
         val modeId = modes[binding.nsMode.selectedItemPosition].id
-        val autorun = if (binding.nsAutorun.isChecked) {
-            if (modeId == "default") "claude" else "claude --permission-mode $modeId"
-        } else ""
+        val autorun = if (binding.nsAutorun.isChecked) buildAutorun(modeId) else ""
 
         createSessionAndOpen(name, cwd, autorun)
     }
 
-    private fun onPickHistory(cs: ClaudeSession) {
+    private fun onPickHistory(cs: AgentHistorySession) {
         val base = prefs.url.trim()
         if (base.isEmpty()) { toast("未设置 URL"); return }
-        val name = if (cs.firstPrompt.isNotEmpty()) cs.firstPrompt.take(30) else "历史 ${cs.id.take(6)}"
+        val label = cs.firstPrompt.ifEmpty { cs.threadName }
+        val name = if (label.isNotEmpty()) label.take(30) else "历史 ${cs.id.take(6)}"
         val cwd  = cs.cwd.ifBlank { "~" }
-        val autorun = "claude --resume ${cs.id}"
+        val autorun = if (provider == "codex") "codex --no-alt-screen resume ${cs.id}" else "claude --resume ${cs.id}"
         createSessionAndOpen(name, cwd, autorun)
     }
 
@@ -175,6 +177,7 @@ class NewSessionActivity : AppCompatActivity() {
                     name = name.ifBlank { null },
                     cwd = cwd.ifBlank { null },
                     autorun = autorun.ifBlank { null },
+                    provider = provider,
                 )
                 val data = Intent().apply {
                     putExtra(RESULT_SESSION_ID, s.id)
@@ -192,10 +195,47 @@ class NewSessionActivity : AppCompatActivity() {
 
     private fun toast(msg: String) { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
 
-    data class ClaudeMode(val id: String, val label: String)
+    private fun providerLabel(): String =
+        if (provider == "codex") getString(R.string.provider_codex) else getString(R.string.provider_claude)
 
-    private class HistoryAdapter(val onClick: (ClaudeSession) -> Unit)
-        : ListAdapter<ClaudeSession, HistoryVH>(DIFF) {
+    private fun commandName(): String = if (provider == "codex") "codex" else "claude"
+
+    private fun buildAutorun(modeId: String): String {
+        if (provider == "codex") {
+            return when (modeId) {
+                "fullAuto" -> "codex --no-alt-screen --full-auto"
+                "readOnly" -> "codex --no-alt-screen --sandbox read-only"
+                "bypassPermissions" -> "codex --no-alt-screen --dangerously-bypass-approvals-and-sandbox"
+                else -> "codex --no-alt-screen"
+            }
+        }
+        return if (modeId == "default") "claude" else "claude --permission-mode $modeId"
+    }
+
+    private fun modesFor(provider: String): List<AgentMode> =
+        if (provider == "codex") {
+            listOf(
+                AgentMode("default", "默认(正常交互,按需确认)"),
+                AgentMode("fullAuto", "Full Auto(可写工作区,按需确认)"),
+                AgentMode("readOnly", "只读沙盒"),
+                AgentMode("bypassPermissions", "旁路权限(完全自动,危险)"),
+            )
+        } else {
+            listOf(
+                AgentMode("default", "默认(正常编辑,逐条确认)"),
+                AgentMode("acceptEdits", "自动接受编辑"),
+                AgentMode("plan", "计划模式(只规划不改)"),
+                AgentMode("bypassPermissions", "旁路权限(完全自动,危险)"),
+            )
+        }
+
+    private fun normalizeProvider(raw: String?): String =
+        if (raw?.trim()?.lowercase() == "codex") "codex" else "claude"
+
+    data class AgentMode(val id: String, val label: String)
+
+    private class HistoryAdapter(val onClick: (AgentHistorySession) -> Unit)
+        : ListAdapter<AgentHistorySession, HistoryVH>(DIFF) {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HistoryVH {
             val v = LayoutInflater.from(parent.context).inflate(R.layout.item_claude_session, parent, false)
             return HistoryVH(v)
@@ -209,9 +249,9 @@ class NewSessionActivity : AppCompatActivity() {
             h.itemView.setOnClickListener { onClick(s) }
         }
         companion object {
-            val DIFF = object : DiffUtil.ItemCallback<ClaudeSession>() {
-                override fun areItemsTheSame(a: ClaudeSession, b: ClaudeSession) = a.id == b.id
-                override fun areContentsTheSame(a: ClaudeSession, b: ClaudeSession) = a == b
+            val DIFF = object : DiffUtil.ItemCallback<AgentHistorySession>() {
+                override fun areItemsTheSame(a: AgentHistorySession, b: AgentHistorySession) = a.id == b.id && a.provider == b.provider
+                override fun areContentsTheSame(a: AgentHistorySession, b: AgentHistorySession) = a == b
             }
             private val DAY = SimpleDateFormat("M/d HH:mm", Locale.getDefault())
             private val HM  = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -237,5 +277,6 @@ class NewSessionActivity : AppCompatActivity() {
         const val RESULT_SESSION_ID = "session_id"
         const val RESULT_SESSION_NAME = "session_name"
         const val RESULT_SESSION_CWD = "session_cwd"
+        const val EXTRA_PROVIDER = "provider"
     }
 }
