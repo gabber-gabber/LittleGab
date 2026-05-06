@@ -1,0 +1,244 @@
+:root {
+  --bg: #0b1020;
+  --fg: #d7e3ff;
+  --muted: #7d8aa8;
+  --accent: #4f8cff;
+  --ok: #38d39f;
+  --bad: #ff6b7a;
+  --bar: #131936;
+  --btn: #1c2548;
+  --btn-active: #2a3870;
+  --gap: 6px;
+  --keybar-h: 56px;
+  --topbar-h: 36px;
+  /* Set from JS as the textarea grows. Default is 1-line composer height. */
+  --composer-h: 56px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  height: 100dvh; width: 100vw;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#topbar {
+  height: var(--topbar-h);
+  padding: 0 10px;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: content-box;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bar);
+  font-size: 13px;
+  border-bottom: 1px solid #23306b;
+}
+#status { font-weight: 600; }
+.status-connected { color: var(--ok); }
+.status-disconnected { color: var(--bad); }
+.status-connecting { color: var(--muted); }
+#host { color: var(--muted); font-family: "SF Mono", ui-monospace, monospace; font-size: 12px; margin-left: auto; }
+#reconnect {
+  background: var(--btn); color: var(--fg);
+  border: none; border-radius: 6px;
+  width: 30px; height: 26px; font-size: 15px;
+}
+#reconnect:active { background: var(--btn-active); }
+
+#term {
+  position: absolute;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  left: 0; right: 0;
+  bottom: calc(var(--keybar-h) + var(--composer-h) + env(safe-area-inset-bottom));
+  padding: 4px;
+}
+.xterm, .xterm-viewport, .xterm-screen { background: var(--bg) !important; }
+
+/* Composer: WeChat-style input strip above the keybar.
+ *
+ * The user types here in a real <textarea>, so tap-to-position, free text
+ * selection, IME composition, copy/paste menus all "just work" — none of that
+ * is plumbed via xterm. On Enter we send the whole buffer to the PTY plus a
+ * carriage return; until then nothing reaches the shell.
+ */
+#composer {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--keybar-h) + env(safe-area-inset-bottom));
+  min-height: var(--composer-h);
+  background: var(--bar);
+  border-top: 1px solid #23306b;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  z-index: 4;
+}
+#composer textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  background: #0b1020;
+  color: var(--fg);
+  border: 1px solid #2a3870;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: ui-monospace, "Roboto Mono", "Noto Sans Mono", "DejaVu Sans Mono", "Droid Sans Mono", Menlo, Consolas, monospace;
+  line-height: 1.35;
+  resize: none;
+  min-height: 36px;
+  max-height: 140px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#composer textarea:focus {
+  border-color: var(--accent);
+}
+#composer #sendBtn {
+  flex: 0 0 auto;
+  width: 44px;
+  min-height: 38px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: bold;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+#composer #sendBtn:active { background: var(--accent-dark, var(--btn-active)); }
+#composer #sendBtn:disabled {
+  background: var(--btn);
+  color: var(--muted);
+}
+
+#keybar {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: env(safe-area-inset-bottom);
+  height: var(--keybar-h);
+  background: var(--bar);
+  border-top: 1px solid #23306b;
+  display: flex; gap: var(--gap);
+  padding: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+#keybar::-webkit-scrollbar { display: none; }
+#keybar button {
+  flex: 0 0 auto;
+  min-width: 48px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--btn);
+  color: var(--fg);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: "SF Mono", ui-monospace, monospace;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+#keybar button:active,
+#keybar button.armed,
+#keybar button.pressed {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Floating toast that briefly shows which byte/key we just sent. Sits above
+ * the composer + keybar stack so the user can verify a tap registered. */
+#keyToast {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--keybar-h) + var(--composer-h) + 12px + env(safe-area-inset-bottom));
+  background: rgba(0,0,0,0.82);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-family: "SF Mono", ui-monospace, monospace;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
+}
+#keyToast.show { opacity: 1; }
+/* "Notify" toast — bigger, brighter, anchored near top of viewport so the
+ * user notices it even when looking at the input area at the bottom. */
+#keyToast.notify {
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 12px);
+  bottom: auto;
+  left: 50%; transform: translateX(-50%);
+  font-size: 14px;
+  padding: 10px 18px;
+  background: var(--accent);
+  border-radius: 18px;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+
+/* Custom touch-friendly scrollbar layered over the terminal. Wider than the
+ * default so a fingertip can grab the thumb; auto-fades when idle. */
+#scrollbar {
+  position: absolute;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 4px);
+  bottom: calc(var(--keybar-h) + var(--composer-h) + env(safe-area-inset-bottom) + 4px);
+  right: 2px;
+  width: 14px;
+  background: rgba(35, 48, 107, 0.15);
+  border-radius: 7px;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  touch-action: none;
+}
+#scrollbar.visible { opacity: 1; }
+#scrollbar.dragging { opacity: 1; background: rgba(35, 48, 107, 0.35); }
+#scrollbarThumb {
+  position: absolute;
+  left: 2px; right: 2px;
+  height: 40px;
+  min-height: 28px;
+  background: rgba(79, 140, 255, 0.55);
+  border-radius: 5px;
+  transition: background 120ms ease;
+}
+#scrollbar.dragging #scrollbarThumb,
+#scrollbarThumb:active { background: rgba(79, 140, 255, 0.9); }
+/* When the terminal isn't scrollable (content ≤ viewport) hide the bar */
+#scrollbar.empty { display: none; }
+
+dialog#tokenDialog {
+  border: none; border-radius: 12px;
+  background: var(--bar); color: var(--fg);
+  padding: 20px; width: min(86vw, 360px);
+}
+dialog::backdrop { background: rgba(0,0,0,0.6); }
+dialog h3 { margin: 0 0 8px; }
+dialog p { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+dialog code { background: #000; padding: 1px 5px; border-radius: 3px; }
+dialog input {
+  width: 100%; padding: 10px 12px;
+  background: #0b1020; color: var(--fg);
+  border: 1px solid #2a3870; border-radius: 8px;
+  font-size: 15px;
+}
+dialog menu { margin: 14px 0 0; padding: 0; display: flex; justify-content: flex-end; }
+dialog menu button {
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 9px 18px; font-size: 14px;
+}

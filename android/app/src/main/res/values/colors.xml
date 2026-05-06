@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#FF0B1020</color>
+    <color name="bar">#FF131936</color>
+    <color name="border">#FF23306B</color>
+    <color name="fg">#FFD7E3FF</color>
+    <color name="muted">#FF7D8AA8</color>
+    <color name="accent">#FF4F8CFF</color>
+    <color name="accent_dark">#FF3A6FD4</color>
+    <color name="ok">#FF38D39F</color>
+    <color name="warn">#FFF5C16C</color>
+    <color name="bad">#FFFF6B7A</color>
+    <color name="btn">#FF1C2548</color>
+    <color name="btn_pressed">#FF2A3870</color>
+</resources>

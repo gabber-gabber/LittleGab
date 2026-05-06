@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LittleGab</string>
+    <string name="settings_title">设置</string>
+    <string name="url_label">Mac 服务地址</string>
+    <string name="url_hint">http://100.x.x.x:7420</string>
+    <string name="url_desc">填 Mac 的 Tailscale 地址(控制台页最上面那条)。URL 可带 ?token=…,首次访问就自动登录。</string>
+    <string name="btn_test">测试连接</string>
+    <string name="btn_save">保存并打开</string>
+    <string name="menu_settings">设置</string>
+    <string name="menu_reload">重新加载</string>
+    <string name="error_no_url">请先在设置里填入 Mac 服务地址。</string>
+    <string name="error_load_failed">加载失败。请检查手机 Tailscale 是否在线、URL 是否正确。</string>
+    <string name="btn_open_settings">打开设置</string>
+    <string name="btn_retry">重试</string>
+    <string name="test_running">正在测试…</string>
+    <string name="test_ok">连接正常(%1$d ms)</string>
+    <string name="test_fail">失败:%1$s</string>
+    <string name="url_invalid">URL 格式不对,请包含 http:// 或 https://。</string>
+
+    <string name="empty_hint">还没有对话。点右下角 + 新建一个,或到 Mac 上复用已有会话。</string>
+    <string name="list_error">无法获取会话列表:\n%1$s</string>
+    <string name="new_conv_title">新建对话</string>
+    <string name="action_rename">改名</string>
+    <string name="action_delete">删除</string>
+    <string name="action_open_mac">在 Mac 终端打开(同步)</string>
+    <string name="delete_title">删除会话</string>
+    <string name="delete_msg">确定删除「%1$s」?PTY 进程会被终止。</string>
+    <string name="error_generic">出错了:%1$s</string>
+    <string name="preview_empty">(暂无输出)</string>
+
+    <string name="btn_scan">扫码填入</string>
+    <string name="scan_cancelled">扫码取消</string>
+    <string name="scan_prompt">对准 Mac 控制台页上的二维码</string>
+
+    <!-- new-conversation dialog -->
+    <string name="nc_name">会话名</string>
+    <string name="nc_name_hint">可留空,默认按时间生成</string>
+    <string name="nc_cwd">工作目录</string>
+    <string name="nc_cwd_hint">~/workspace/your-project</string>
+    <string name="nc_pick">浏览</string>
+    <string name="nc_autorun">启动即运行 claude</string>
+    <string name="nc_autorun_hint">会话开起来后自动执行一次 claude 命令。</string>
+    <string name="nc_create">创建</string>
+
+    <!-- folder picker -->
+    <string name="folder_picker_title">选择工作目录</string>
+    <string name="select_this_folder">选这里</string>
+    <string name="empty_dir">(空目录)</string>
+
+    <!-- file tree / viewer -->
+    <string name="files_header">文件</string>
+    <string name="menu_files">文件</string>
+    <string name="save">保存</string>
+    <string name="md_render">渲染 MD</string>
+    <string name="md_source">显示源码</string>
+    <string name="open_external">用其他应用打开</string>
+    <string name="pdf_opening_external">PDF 已交给系统应用打开。</string>
+    <string name="unsupported_kind">无法直接预览(%1$s,%2$d 字节)。</string>
+
+    <!-- file CRUD -->
+    <string name="create_file">新建文件</string>
+    <string name="create_folder">新建文件夹</string>
+    <string name="confirm_delete_file">删除文件「%1$s」?</string>
+    <string name="confirm_delete_dir">删除文件夹「%1$s」及其全部内容?</string>
+
+    <!-- new session screen tabs -->
+    <string name="nc_tab_new">新对话</string>
+    <string name="nc_tab_history">继续历史</string>
+    <string name="nc_mode">模式</string>
+    <string name="nc_mode_hint">对应 Claude 的 Shift+Tab 模式,可在会话里再切换。</string>
+    <string name="nc_search_hint">搜索(首轮提问/目录/分支)</string>
+    <string name="nc_hist_summary">共 %1$d 条历史会话</string>
+    <string name="nc_hist_filtered">匹配 %1$d / 共 %2$d</string>
+    <string name="nc_hist_error">加载失败: %1$s</string>
+    <string name="nc_hist_empty">没有匹配的历史会话。</string>
+
+    <!-- notifications -->
+    <string name="notif_section">消息推送</string>
+    <string name="notif_desc">打开后,当 Claude 需要你点 y/n 确认或一个回合刚跑完时,APP 会在锁屏/通知栏弹消息,图标上也带红点。后台会有一条常驻"监听中"通知,这是 Android 前台服务的规定,不能隐藏。</string>
+    <string name="notif_toggle">开启会话事件推送</string>
+</resources>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>LittleGab</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="stylesheet" href="/vendor/xterm.min.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header id="topbar">
+    <span id="status" class="status-disconnected">● 未连接</span>
+    <span id="host"></span>
+    <button id="reconnect" title="重连">↻</button>
+  </header>
+
+  <main id="term"></main>
+
+  <!-- Draggable scrollbar overlay. Sits on top of the terminal at the right
+       edge; the JS wires drag + tap-to-jump to term.scrollToLine(). -->
+  <div id="scrollbar" aria-hidden="true">
+    <div id="scrollbarThumb"></div>
+  </div>
+
+  <!-- Composer: a regular textarea (no xterm magic) so tap-to-position +
+       text selection + IME composition all behave like every other Android
+       text field. Enter sends the whole buffer to the PTY as one message. -->
+  <div id="composer">
+    <textarea id="inputArea"
+              rows="1"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="输入消息,回车发送"></textarea>
+    <button id="sendBtn" aria-label="发送">↑</button>
+  </div>
+
+  <nav id="keybar">
+    <button data-key="esc">Esc</button>
+    <button data-key="esc-esc" title="再按一次 ESC:查看会话历史">Esc×2</button>
+    <button data-key="tab">Tab</button>
+    <button data-key="shift-tab" title="切换模式">⇧⇥</button>
+    <button id="newlineBtn" title="在输入框里插入换行(不发送)">↵换行</button>
+    <button data-key="up">↑</button>
+    <button data-key="down">↓</button>
+    <button data-key="left">←</button>
+    <button data-key="right">→</button>
+    <button data-key="c-c">^C</button>
+    <button data-key="c-d">^D</button>
+    <button data-key="c-l">^L</button>
+    <button data-scroll="-10" title="滚屏往上一屏">⇞</button>
+    <button data-scroll="10" title="滚屏往下一屏">⇟</button>
+    <button id="copyBtn">复制</button>
+    <button id="pasteBtn">粘贴</button>
+  </nav>
+
+  <dialog id="tokenDialog">
+    <form method="dialog">
+      <h3>输入访问 token</h3>
+      <p>首次使用请输入 Mac 上 <code>~/.phone-mac-bridge/token</code> 的内容。</p>
+      <input id="tokenInput" type="password" autocomplete="off" placeholder="token" />
+      <menu>
+        <button value="ok">确定</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="/vendor/xterm.min.js"></script>
+  <script src="/vendor/xterm-addon-fit.min.js"></script>
+  <script src="/vendor/xterm-addon-webgl.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

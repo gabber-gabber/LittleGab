@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bar"
+        app:title="@string/new_conv_title"
+        app:titleTextColor="@color/fg"
+        app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/ns_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bar"
+        app:tabIndicatorColor="@color/accent"
+        app:tabSelectedTextColor="@color/fg"
+        app:tabTextColor="@color/muted"
+        app:layout_constraintTop_toBottomOf="@id/toolbar">
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nc_tab_new" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nc_tab_history" />
+    </com.google.android.material.tabs.TabLayout>
+
+    <!-- Pane 1: new session -->
+    <ScrollView
+        android:id="@+id/ns_new_pane"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/ns_tabs"
+        app:layout_constraintBottom_toTopOf="@id/ns_btn_create">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView style="@style/NsLabel" android:text="@string/nc_name" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/NsOutline">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/ns_name"
+                    style="@style/NsField"
+                    android:hint="@string/nc_name_hint" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView style="@style/NsLabel"
+                android:text="@string/nc_cwd"
+                android:paddingTop="16dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:baselineAligned="false">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/NsOutline"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/ns_cwd"
+                        style="@style/NsField"
+                        android:fontFamily="monospace"
+                        android:textSize="13sp"
+                        android:hint="@string/nc_cwd_hint" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Button
+                    android:id="@+id/ns_pick"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="14dp"
+                    android:text="@string/nc_pick" />
+            </LinearLayout>
+
+            <TextView style="@style/NsLabel"
+                android:text="@string/nc_mode"
+                android:paddingTop="16dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/nc_mode_hint"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:paddingBottom="6dp" />
+
+            <Spinner
+                android:id="@+id/ns_mode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/bar" />
+
+            <CheckBox
+                android:id="@+id/ns_autorun"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:textColor="@color/fg"
+                android:text="@string/nc_autorun"
+                android:paddingTop="16dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Pane 2: history -->
+    <LinearLayout
+        android:id="@+id/ns_history_pane"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/ns_tabs"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/NsOutline"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="4dp">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/ns_search"
+                style="@style/NsField"
+                android:hint="@string/nc_search_hint"
+                android:imeOptions="actionSearch"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/ns_hist_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/muted"
+            android:textSize="11sp"
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="4dp" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/ns_hist_recycler"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ProgressBar
+                android:id="@+id/ns_hist_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ns_hist_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:padding="16dp"
+                android:gravity="center"
+                android:textColor="@color/bad"
+                android:visibility="gone" />
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/ns_btn_create"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="@string/nc_create"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

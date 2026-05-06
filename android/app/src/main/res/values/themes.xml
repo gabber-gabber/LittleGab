@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.PhoneMacBridge" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorPrimaryDark">@color/accent_dark</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorSurface">@color/bar</item>
+        <item name="colorOnSurface">@color/fg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bar</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:textColor">@color/fg</item>
+        <item name="android:textColorPrimary">@color/fg</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+    </style>
+
+    <style name="Theme.PhoneMacBridge.Settings" parent="Theme.PhoneMacBridge">
+        <item name="android:statusBarColor">@color/bar</item>
+    </style>
+
+</resources>

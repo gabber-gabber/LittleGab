@@ -1,0 +1,17 @@
+{
+  "name": "phone-mac-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remote terminal bridge: phone (PWA) <-> Mac (Claude CLI) over Tailscale",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

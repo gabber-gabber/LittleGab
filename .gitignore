@@ -1,0 +1,27 @@
+.DS_Store
+
+# Local Claude/Codex project settings
+.claude/
+
+# Node dependencies and logs
+node_modules/
+server/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Android/Gradle build outputs and local state
+android/.gradle/
+android/app/build/
+android/build/
+*.iml
+
+# Packaged artifacts
+dist/
+dist.zip
+*.apk
+*.app/
+*.zip
+
+# Local runtime files
+*.log

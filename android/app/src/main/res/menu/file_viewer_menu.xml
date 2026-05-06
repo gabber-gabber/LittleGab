@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/fv_save"
+        android:title="@string/save"
+        android:icon="@android:drawable/ic_menu_save"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/fv_md_toggle"
+        android:title="@string/md_render"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/fv_reload"
+        android:title="@string/menu_reload"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/fv_external"
+        android:title="@string/open_external"
+        app:showAsAction="never" />
+</menu>
